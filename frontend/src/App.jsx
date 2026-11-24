@@ -1,5 +1,5 @@
 import React,{useState} from "react";
-const API=import.meta.env.VITE_API_URL||"http://localhost:8000";
+const API=import.meta.env.VITE_API_URL||`http://${window.location.hostname}:8000`;
 export default function App(){
  const [file,setFile]=useState(null),[doc,setDoc]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[decisions,setDecisions]=useState({});
  async function upload(e){e.preventDefault();if(!file)return;setBusy(true);setError("");setDoc(null);try{const fd=new FormData();fd.append("file",file);const r=await fetch(API+"/api/pdf/import",{method:"POST",body:fd});const j=await r.json();if(!r.ok)throw new Error(j.detail||"Upload failed");setDoc(j);}catch(x){setError(x.message);}finally{setBusy(false);}}
