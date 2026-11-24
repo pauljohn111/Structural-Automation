@@ -11,8 +11,14 @@ DATA_DIR = Path(os.getenv("STRUCTURAL_AUTOMATION_DATA", "./data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 documents: dict[str, dict] = {}
 
-app = FastAPI(title="Structural Automation API", version="0.2.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173","http://127.0.0.1:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app = FastAPI(title="Structural Automation API", version="0.2.1")
+# Permit the Vite dev server from localhost or private LAN hosts so a tablet can connect.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origin_regex=r"https?://(10\..*|192\.168\..*|172\.(1[6-9]|2[0-9]|3[01])\..*):5173",
+    allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
+)
 
 @app.get("/api/health")
 def health():
@@ -46,12 +52,14 @@ def calibrate(document_id: str, request: CalibrationRequest):
         raise HTTPException(404, "PDF document not found.")
     if request.page_number > 100:
         raise HTTPException(400, "Invalid page number.")
-    points_per_unit = request.pixel_distance / request.real_distance
+    # Store the engineer's reference measurement only. Automatic coordinate conversion
+    # is deliberately disabled until two-point page-coordinate selection is implemented.
     result = {"page_number":request.page_number,"pixel_distance":request.pixel_distance,
               "real_distance":request.real_distance,"unit":request.unit,
-              "points_per_unit":round(points_per_unit,8),
-              "warning":"Calibration is stored as a user-supplied reference. Confirm the selected endpoints and page before using dimensions."}
-    documents[document_id].setdefault("calibrations",[]).append(result)
+              "reference_ratio":round(request.pixel_distance / request.real_distance,8),
+              "status":"reference_only",
+              "warning":"Reference recorded only. It is not applied to extracted geometry; select and verify endpoints before dimension conversion is enabled."}
+    documents[document_id].setdefault("calibration_references",[]).append(result)
     return result
 
 @app.post("/api/pdf/{document_id}/review")
